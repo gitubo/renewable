@@ -27,7 +27,7 @@ jobs:
         run: |
           FILENAME="backup_$(date -u +%Y%m%d_%H%M%S).sql.gz"
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
-          pg_dump "$SUPABASE_DB_URL" --no-owner --no-acl | gzip > "$FILENAME"
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" --no-owner --no-acl | gzip > "$FILENAME"
           echo "Dump size: $(du -h $FILENAME | cut -f1)"
 
       - name: Upload to Supabase Storage
