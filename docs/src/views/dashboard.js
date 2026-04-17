@@ -1,5 +1,5 @@
 import { getDashboard, toggleStar } from '../api.js';
-import { esc, companyRow, attachRowHandlers } from '../row-helpers.js';
+import { esc, companyRow, attachRowHandlers, scoreColor } from '../row-helpers.js';
 
 let stats = null;
 
@@ -106,24 +106,33 @@ function render(app) {
       </div>
     </div></div>
 
-    <!-- Row 3: Breakdowns (2/3) + Most Relevant (1/3) -->
+    <!-- Row 3: Breakdowns (1/3) + Most Relevant (2/3) -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-      <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-3">
-        ${bdTable('Status Breakdown','Status',statusItems,totalCo)}
+      <div class="lg:col-span-4 grid grid-cols-1 gap-3">
         ${bdTable('Score Breakdown','Score',scoreItems,d.scored_total||1)}
         ${bdTable('Region Breakdown','Region',regionItems,totalCo)}
-        ${bdTable('Source Breakdown','Source',sourceItems,totalCo)}
       </div>
-      <div class="lg:col-span-4">
+      <div class="lg:col-span-8">
         <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
           <div class="px-4 py-3 bg-surface-container-low"><h2 class="text-sm font-bold font-headline uppercase tracking-wider">Most Relevant</h2></div>
-          <div class="divide-y divide-surface-variant/20">
-            ${(d.starred_companies||[]).map(c => `<div class="flex items-center gap-2 px-3 py-2 hover:bg-surface-container-low cursor-pointer" data-nav="${c.id}">
-              <span class="star-toggle text-sm cursor-pointer ${c.starred?'text-amber-400':'text-gray-300'}" data-id="${c.id}">${c.starred?'★':'☆'}</span>
-              <span class="text-xs font-medium text-on-surface flex-1 truncate">${esc(c.name)}</span>
-              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-fixed/30 text-primary">${c.score}/10</span>
-            </div>`).join('') || '<p class="px-3 py-4 text-xs text-secondary text-center">No companies</p>'}
-          </div>
+          <table class="w-full text-left border-collapse">
+            <thead class="bg-surface-container-low"><tr>
+              <th class="px-4 py-2 w-10"></th>
+              <th class="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">Company</th>
+              <th class="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">Location</th>
+              <th class="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">Score</th>
+              <th class="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">Status</th>
+            </tr></thead>
+            <tbody class="divide-y divide-surface-variant/20">
+              ${(d.starred_companies||[]).map(c => `<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer">
+                <td class="px-4 py-2 w-10"><span class="star-toggle ${c.starred?'text-amber-400':'text-gray-300 hover:text-amber-300'} cursor-pointer text-xl" data-id="${c.id}">${c.starred?'★':'☆'}</span></td>
+                <td class="px-4 py-2" data-nav="${c.id}"><div class="text-xs font-semibold text-primary">${esc(c.name)}</div></td>
+                <td class="px-4 py-2"><div class="text-[11px] text-secondary">${esc(c.city||'')}</div><div class="text-[10px] text-outline">${esc(c.region||'')}</div></td>
+                <td class="px-4 py-2"><div class="text-xs font-bold" style="color:${scoreColor(c.score||0)}">${c.score||0}</div></td>
+                <td class="px-4 py-2"><span class="crm-badge-${c.crm_status||'new'} px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tighter">${c.crm_status||'new'}</span></td>
+              </tr>`).join('') || '<tr><td colspan="5" class="px-4 py-4 text-xs text-secondary text-center">No companies</td></tr>'}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>`;
