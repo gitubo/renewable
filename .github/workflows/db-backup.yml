@@ -1,4 +1,4 @@
-name: Supabase Backup & Keep Alive
+name: Supabase Daily Backup
 
 on:
   schedule:
