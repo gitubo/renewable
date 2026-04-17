@@ -50,8 +50,8 @@ function render(app) {
       const lbl = r.label || r.source || '';
       return `<tr><td class="px-3 py-1 text-[11px] font-bold uppercase">${esc(pipelineLabels[lbl]||lbl)}</td><td class="px-3 py-1 text-[11px] text-right font-mono">${r.companies||r.count||0}</td><td class="px-3 py-1 text-[11px] text-right font-mono">${r._pct}%</td></tr>`;
     }).join('');
-    return `<div class="bg-surface-container-lowest p-3 rounded-xl shadow-sm h-[210px] flex flex-col">
-      <h2 class="text-sm font-bold font-headline uppercase tracking-wider mb-1">${title}</h2>
+    return `<div class="bg-surface-container-lowest rounded-xl shadow-sm flex flex-col overflow-hidden">
+      <div class="px-3 py-2 bg-surface-container-low"><h2 class="text-sm font-bold font-headline uppercase tracking-wider">${title}</h2></div>
       <table class="w-full text-left border-collapse flex-1"><thead><tr class="border-b border-outline-variant/20">
         <th class="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">${col}</th>
         <th class="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant text-right">Companies</th>
@@ -107,8 +107,8 @@ function render(app) {
     </div></div>
 
     <!-- Row 3: Breakdowns (1/3) + Most Relevant (2/3) -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-      <div class="lg:col-span-4 grid grid-cols-1 gap-3">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+      <div class="lg:col-span-4 flex flex-col gap-3">
         ${bdTable('Score Breakdown','Score',scoreItems,d.scored_total||1)}
         ${bdTable('Region Breakdown','Region',regionItems,totalCo)}
       </div>
