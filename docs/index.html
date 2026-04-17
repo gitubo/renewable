@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Biomassa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-primary":"#ffffff","surface-container-low":"#f2f4f5","surface-container-lowest":"#ffffff",
+            "primary-fixed":"#bcf0ae","tertiary-container":"#143200","outline-variant":"#c5c6ce",
+            "surface-container-high":"#e6e8e9","primary-container":"#043305","secondary":"#4f5e7e",
+            "surface-tint":"#3b6934","on-secondary-container":"#505f7f","on-secondary":"#ffffff",
+            "on-surface":"#191c1d","on-primary-container":"#6e9f64","primary":"#001c01",
+            "on-primary-fixed-variant":"#23501e","on-tertiary-container":"#61a333",
+            "secondary-container":"#cadaff","on-error":"#ffffff","background":"#f8fafb",
+            "error":"#ba1a1a","primary-fixed-dim":"#a1d494","secondary-fixed-dim":"#b7c7eb",
+            "surface":"#f8fafb","outline":"#75777e","surface-container-highest":"#e1e3e4",
+            "tertiary":"#081b00","on-primary-fixed":"#002201","surface-container":"#eceeef",
+            "on-surface-variant":"#44474d","tertiary-fixed":"#aef67b","tertiary-fixed-dim":"#93d962",
+          },
+          fontFamily: { headline:["Manrope"], body:["Inter"], label:["Inter"] },
+        },
+      },
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    /* CRM status badges */
+    .crm-new, .crm-badge-new { background: #EFF1F0; color: #444747; }
+    .crm-contacted, .crm-badge-contacted { background: #E5F4ED; color: #3C4A45; }
+    .crm-interested, .crm-badge-interested { background: #BBCAC4; color: #3C4A45; }
+    .crm-negotiating, .crm-badge-negotiating { background: #74988D; color: #002019; }
+    .crm-customer, .crm-badge-customer { background: #2B4D44; color: #E5F4ED; }
+    .crm-not_interested, .crm-badge-not_interested { background: #191C1C; color: #EFF1F0; }
+
+    /* Markdown content typography */
+    .md-content h1, .md-content h2, .md-content h3,
+    .md-content h4, .md-content h5, .md-content h6 {
+      font-family: 'Manrope', sans-serif;
+      color: #001c01;
+      font-weight: 700;
+      line-height: 1.3;
+      margin: 0.75em 0 0.25em;
+    }
+    .md-content h1 { font-size: 1.5rem; }
+    .md-content h2 { font-size: 0.85rem; }
+    .md-content h3 { font-size: 1.125rem; }
+    .md-content h4 { font-size: 1rem; }
+    .md-content h5 { font-size: 0.875rem; }
+    .md-content h6 { font-size: 0.75rem; }
+
+    .md-content ul, .md-content ol {
+      padding-left: 1.5em;
+      margin: 0.5em 0;
+    }
+    .md-content ul { list-style-type: disc; }
+    .md-content ol { list-style-type: decimal; }
+    .md-content li { margin: 0.25em 0; }
+
+    .md-content a {
+      color: #001c01;
+      text-decoration: none;
+    }
+    .md-content a:hover { text-decoration: underline; }
+
+    .md-content pre {
+      background: #f2f4f5;
+      border-radius: 0.375rem;
+      padding: 0.75em 1em;
+      overflow-x: auto;
+      margin: 0.5em 0;
+    }
+    .md-content code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.875em;
+      background: #f2f4f5;
+      padding: 0.125em 0.25em;
+      border-radius: 0.25rem;
+    }
+    .md-content pre code {
+      background: none;
+      padding: 0;
+    }
+
+    .md-content blockquote {
+      border-left: 3px solid #c5c6ce;
+      padding-left: 1em;
+      margin: 0.5em 0;
+      color: #44474d;
+    }
+
+    .md-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.5em 0;
+    }
+    .md-content th, .md-content td {
+      border: 1px solid #c5c6ce;
+      padding: 0.375em 0.75em;
+      text-align: left;
+    }
+    .md-content th {
+      background: #f2f4f5;
+      font-weight: 600;
+    }
+
+    .md-content hr {
+      border: none;
+      border-top: 1px solid #c5c6ce;
+      margin: 1em 0;
+    }
+
+    .md-content p { margin: 0.5em 0; }
+
+    /* Expand/collapse clamp for markdown content */
+    .line-clamp-md {
+      max-height: 4.5em;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+  <!-- TopNavBar -->
+  <header id="main-nav" class="bg-emerald-950/90 backdrop-blur-md sticky top-0 w-full z-50 flex justify-between items-center px-8 py-3 shadow-xl shadow-emerald-950/20 tracking-tight">
+    <div class="flex items-center gap-8">
+      <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-emerald-300 text-xl">energy_savings_leaf</span><span class="text-xl font-bold tracking-tight text-emerald-50 font-headline">Biomassa</span></div>
+      <nav class="hidden md:flex items-center gap-6" id="nav-links">
+        <a href="#/dashboard" data-route="#/dashboard" class="nav-link text-emerald-100/70 hover:text-emerald-100 transition-colors tracking-wider uppercase text-[11px] font-bold">Dashboard</a>
+        <a href="#/companies" data-route="#/companies" class="nav-link text-emerald-100/70 hover:text-emerald-100 transition-colors tracking-wider uppercase text-[11px] font-bold">Companies</a>
+        <a href="#/import" data-route="#/import" class="nav-link text-emerald-100/70 hover:text-emerald-100 transition-colors tracking-wider uppercase text-[11px] font-bold">Import</a>
+      </nav>
+    </div>
+  </header>
+  <main id="app" class="p-4 min-h-screen max-w-[1600px] mx-auto space-y-4"></main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# Data files (keep local, not in git)
+csv/
+markdown_output/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+.hypothesis/
+.pytest_cache/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.kiro/
+
+# OS
+.DS_Store
+Thumbs.db
