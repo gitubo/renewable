@@ -60,19 +60,14 @@ async function doLogin() {
 }
 
 function addLogoutButton() {
-  const nav = document.querySelector('#nav-links');
-  if (nav && !document.getElementById('btn-logout')) {
-    const btn = document.createElement('a');
-    btn.id = 'btn-logout';
-    btn.href = '#';
-    btn.className = 'nav-link text-emerald-100/70 hover:text-emerald-100 transition-colors tracking-wider uppercase text-[11px] font-bold';
-    btn.textContent = 'Logout';
-    btn.addEventListener('click', async (e) => {
+  const container = document.getElementById('nav-right');
+  if (container && !document.getElementById('btn-logout')) {
+    container.innerHTML = `<a id="btn-logout" href="#" class="text-emerald-100/70 hover:text-emerald-100 transition-colors tracking-wider uppercase text-[11px] font-bold">Logout</a>`;
+    document.getElementById('btn-logout').addEventListener('click', async (e) => {
       e.preventDefault();
       await sb.auth.signOut();
       showLogin();
     });
-    nav.appendChild(btn);
   }
 }
 
