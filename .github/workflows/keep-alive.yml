@@ -32,13 +32,15 @@ jobs:
 
       - name: Upload to Supabase Storage
         run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          HTTP_CODE=$(curl -s -o /tmp/upload_response.txt -w "%{http_code}" \
             -X POST \
             "$SUPABASE_URL/storage/v1/object/$BUCKET/$FILENAME" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
-            -H "Content-Type: application/gzip" \
+            -H "Content-Type: application/octet-stream" \
+            -H "x-upsert: true" \
             --data-binary @"$FILENAME")
           echo "Upload response: $HTTP_CODE"
+          cat /tmp/upload_response.txt
           if [ "$HTTP_CODE" != "200" ]; then echo "Upload failed"; exit 1; fi
 
       - name: Delete old backups (older than 15 days)
