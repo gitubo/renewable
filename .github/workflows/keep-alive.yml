@@ -1,4 +1,4 @@
-name: Supabase Keep Alive
+name: Supabase Backup & Keep Alive
 
 on:
   schedule:
@@ -6,13 +6,76 @@ on:
   workflow_dispatch:       # Manual trigger
 
 jobs:
-  ping:
+  backup:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BUCKET: backups
+      RETENTION_DAYS: 15
+
     steps:
-      - name: Ping Supabase
+      - name: Install pg_dump
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Dump database
         run: |
-          curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/companies?select=id&limit=1" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
-          echo " - Supabase pinged"
+          FILENAME="backup_$(date -u +%Y%m%d_%H%M%S).sql.gz"
+          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+          pg_dump "$SUPABASE_DB_URL" --no-owner --no-acl | gzip > "$FILENAME"
+          echo "Dump size: $(du -h $FILENAME | cut -f1)"
+
+      - name: Upload to Supabase Storage
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            "$SUPABASE_URL/storage/v1/object/$BUCKET/$FILENAME" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "Content-Type: application/gzip" \
+            --data-binary @"$FILENAME")
+          echo "Upload response: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then echo "Upload failed"; exit 1; fi
+
+      - name: Delete old backups (older than 15 days)
+        run: |
+          # List all files in bucket
+          FILES=$(curl -s \
+            "$SUPABASE_URL/storage/v1/object/list/$BUCKET" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"prefix":"","limit":1000}')
+
+          CUTOFF=$(date -u -d "$RETENTION_DAYS days ago" +%Y%m%d_%H%M%S)
+
+          echo "$FILES" | python3 -c "
+          import json, sys
+          files = json.load(sys.stdin)
+          cutoff = '$CUTOFF'
+          to_delete = []
+          for f in files:
+              name = f.get('name','')
+              if not name.startswith('backup_') or not name.endswith('.sql.gz'):
+                  continue
+              # Extract date from filename: backup_YYYYMMDD_HHMMSS.sql.gz
+              ts = name.replace('backup_','').replace('.sql.gz','')
+              if ts < cutoff:
+                  to_delete.append(name)
+          for name in to_delete:
+              print(name)
+          " > /tmp/old_backups.txt
+
+          if [ -s /tmp/old_backups.txt ]; then
+            echo "Deleting old backups:"
+            cat /tmp/old_backups.txt
+            # Build JSON array for batch delete
+            PATHS=$(cat /tmp/old_backups.txt | python3 -c "import sys,json; print(json.dumps([l.strip() for l in sys.stdin]))")
+            curl -s -X DELETE \
+              "$SUPABASE_URL/storage/v1/object/$BUCKET" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+              -H "Content-Type: application/json" \
+              -d "{\"prefixes\":$PATHS}"
+            echo "Old backups deleted"
+          else
+            echo "No old backups to delete"
+          fi
