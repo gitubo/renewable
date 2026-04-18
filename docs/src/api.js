@@ -69,8 +69,11 @@ export async function getCompanies(params = {}) {
   if (params.region) q = q.eq('region', params.region);
   if (params.crm_status) q = q.eq('crm_status', params.crm_status);
   if (params.starred) q = q.eq('starred', true);
+  if (params.min_score != null) q = q.gte('relevance_score', params.min_score);
+  if (params.emp_min != null) q = q.gte('employees_max', params.emp_min);
+  if (params.emp_max != null) q = q.lte('employees_min', params.emp_max);
 
-  const sortMap = { name: 'name', score: 'relevance_score', updated_at: 'updated_at', crm_status: 'crm_status', data_count: 'data_count', city: 'city' };
+  const sortMap = { name: 'name', score: 'relevance_score', updated_at: 'updated_at', crm_status: 'crm_status', data_count: 'data_count', city: 'city', employees: 'employees_max' };
   const col = sortMap[params.sort_by] || 'name';
   q = q.order(col, { ascending: params.sort_order !== 'desc' });
 
