@@ -70,6 +70,7 @@ export async function getCompanies(params = {}) {
   if (params.crm_status) q = q.eq('crm_status', params.crm_status);
   if (params.starred) q = q.eq('starred', true);
   if (params.min_score != null) q = q.gte('relevance_score', params.min_score);
+  if (params.max_score != null) q = q.lte('relevance_score', params.max_score);
   if (params.emp_min != null) q = q.gte('employees_max', params.emp_min);
   if (params.emp_max != null) q = q.lte('employees_min', params.emp_max);
 

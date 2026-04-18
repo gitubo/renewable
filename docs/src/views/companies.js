@@ -1,7 +1,7 @@
 import { getCompanies, getRegions, autocompleteCompanies, toggleStar, createCompany } from '../api.js';
 import { esc, scoreColor, crmBadge, attachRowHandlers } from '../row-helpers.js';
 
-let state = { search:'', region:'', crm_status:'', starred:false, score_min:'',
+let state = { search:'', region:'', crm_status:'', starred:false, score_min:0, score_max:10,
   emp_min:0, emp_max:10000, sort_by:'name', sort_order:'asc', page:1 };
 let regions = [];
 const PAGE_SIZE = 50;
@@ -45,12 +45,10 @@ function renderFilterPanel() {
     <div class="bg-surface-container-low rounded-xl p-3 space-y-4 sticky top-[100px]">
       <h3 class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">Filters</h3>
 
-      <div>
-        <button id="btn-starred" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors
-          ${state.starred?'bg-amber-100 text-amber-700':'bg-surface-bright text-on-surface-variant hover:bg-surface-container-highest'}">
-          <span class="material-symbols-outlined text-base">${state.starred?'star':'star_border'}</span> Starred only
-        </button>
-      </div>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="f-starred" ${state.starred?'checked':''} class="w-4 h-4 rounded border-outline accent-amber-500" />
+        <span class="text-xs font-semibold text-on-surface-variant">Starred only</span>
+      </label>
 
       <div>
         <label class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Status</label>
@@ -63,11 +61,19 @@ function renderFilterPanel() {
 
       <div>
         <label class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Score</label>
-        <select id="f-score" class="mt-1 w-full bg-surface-bright border-none rounded-lg py-1.5 px-2 text-xs">
-          <option value="">All</option>
-          ${[1,2,3,4,5,6,7,8,9,10].map(n =>
-            `<option value="${n}" ${state.score_min==n?'selected':''}>${n}+</option>`).join('')}
-        </select>
+        <div class="flex justify-between text-[10px] text-secondary mt-1">
+          <span>min: <strong id="sc-lo-label">${state.score_min}</strong></span>
+          <span>max: <strong id="sc-hi-label">${state.score_max}</strong></span>
+        </div>
+        <div class="range-slider relative h-6 mt-1">
+          <input type="range" id="sc-lo" min="0" max="10" value="${state.score_min}" step="1"
+            class="range-thumb absolute w-full pointer-events-none appearance-none bg-transparent h-1 top-2.5 z-20" />
+          <input type="range" id="sc-hi" min="0" max="10" value="${state.score_max}" step="1"
+            class="range-thumb absolute w-full pointer-events-none appearance-none bg-transparent h-1 top-2.5 z-30" />
+          <div class="absolute h-1 bg-outline/20 rounded top-2.5 left-0 right-0"></div>
+          <div id="sc-track" class="absolute h-1 bg-primary rounded top-2.5"
+            style="left:${state.score_min/10*100}%;right:${100-state.score_max/10*100}%"></div>
+        </div>
       </div>
 
       <div>
@@ -103,16 +109,30 @@ function renderFilterPanel() {
     </style>`;
 
   // Events
-  document.getElementById('btn-starred').onclick = () => { state.starred=!state.starred; state.page=1; renderFilterPanel(); loadData(); };
+  document.getElementById('f-starred').onchange = (e) => { state.starred=e.target.checked; state.page=1; loadData(); };
   document.getElementById('f-crm').onchange = applyFilters;
-  document.getElementById('f-score').onchange = applyFilters;
   document.getElementById('f-region').onchange = applyFilters;
   document.getElementById('btn-reset').onclick = () => {
-    state={...state,region:'',crm_status:'',starred:false,score_min:'',emp_min:0,emp_max:10000,page:1};
+    state={...state,region:'',crm_status:'',starred:false,score_min:0,score_max:10,emp_min:0,emp_max:10000,page:1};
     renderFilterPanel(); loadData();
   };
 
-  // Dual range slider
+  // Score dual slider
+  const slo=document.getElementById('sc-lo'), shi=document.getElementById('sc-hi');
+  const strack=document.getElementById('sc-track');
+  const sloL=document.getElementById('sc-lo-label'), shiL=document.getElementById('sc-hi-label');
+  function updS() {
+    let lv=+slo.value, hv=+shi.value;
+    if(lv>hv){slo.value=hv;lv=hv;}
+    strack.style.left=(lv/10*100)+'%';
+    strack.style.right=(100-hv/10*100)+'%';
+    sloL.textContent=lv; shiL.textContent=hv;
+  }
+  slo.oninput=updS; shi.oninput=updS;
+  slo.onchange=()=>{state.score_min=+slo.value;state.page=1;loadData();};
+  shi.onchange=()=>{state.score_max=+shi.value;state.page=1;loadData();};
+
+  // Employee dual slider
   const lo=document.getElementById('emp-lo'), hi=document.getElementById('emp-hi');
   const track=document.getElementById('emp-track');
   const loL=document.getElementById('emp-lo-label'), hiL=document.getElementById('emp-hi-label');
@@ -132,7 +152,6 @@ function applyFilters() {
   state.search=document.getElementById('f-search').value;
   state.region=document.getElementById('f-region').value;
   state.crm_status=document.getElementById('f-crm').value;
-  state.score_min=document.getElementById('f-score').value;
   state.page=1; loadData();
 }
 
@@ -161,7 +180,8 @@ async function loadData() {
     if (state.region) params.region = state.region;
     if (state.crm_status) params.crm_status = state.crm_status;
     if (state.starred) params.starred = true;
-    if (state.score_min) params.min_score = parseInt(state.score_min);
+    if (state.score_min > 0) params.min_score = state.score_min;
+    if (state.score_max < 10) params.max_score = state.score_max;
     if (state.emp_min > 0) params.emp_min = state.emp_min;
     if (state.emp_max < 10000) params.emp_max = state.emp_max;
     params.sort_by = state.sort_by;
