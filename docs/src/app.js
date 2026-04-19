@@ -6,11 +6,14 @@ import { renderDashboard } from './views/dashboard.js';
 import { renderCompanies } from './views/companies.js';
 import { renderDetail } from './views/detail.js';
 import { renderImport } from './views/import.js';
+import { renderTopicSelector } from './components/topic-selector.js';
+import { renderCrossSelling } from './views/cross-selling.js';
 
 const routes = [
   { pattern: /^#\/company\/(\d+)$/, view: (id) => renderDetail(id) },
   { pattern: /^#\/companies$/,      view: () => renderCompanies() },
   { pattern: /^#\/import$/,         view: () => renderImport() },
+  { pattern: /^#\/cross-selling$/,  view: () => renderCrossSelling() },
   { pattern: /^#\/dashboard$/,      view: () => renderDashboard() },
 ];
 
@@ -77,6 +80,7 @@ async function navigate() {
 
   document.getElementById('main-nav').classList.remove('hidden');
   addLogoutButton();
+  renderTopicSelector(document.getElementById('nav-links'));
 
   const hash = window.location.hash || '#/dashboard';
   document.querySelectorAll('#nav-links .nav-link:not(#btn-logout)').forEach(a => {

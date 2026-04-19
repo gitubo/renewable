@@ -5,10 +5,10 @@ let stats = null;
 
 export async function renderDashboard() {
   const app = document.getElementById('app');
-  if (!stats) {
-    app.innerHTML = '<p class="text-secondary">Loading...</p>';
-    try { stats = await getDashboard(); } catch (err) { app.innerHTML = `<p class="text-error">${esc(err.message)}</p>`; return; }
-  }
+  // Always re-fetch stats so topic filter changes are reflected
+  stats = null;
+  app.innerHTML = '<p class="text-secondary">Loading...</p>';
+  try { stats = await getDashboard(); } catch (err) { app.innerHTML = `<p class="text-error">${esc(err.message)}</p>`; return; }
   render(app);
 }
 

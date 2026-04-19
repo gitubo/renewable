@@ -1,21 +1,24 @@
-import { getCompany, updateCompany, getCompanyData, createCompanyData, deleteCompanyData, getContacts, createContact, updateContact, deleteContact, getActivities, createActivity, deleteActivity, toggleStar, getStatuses, changeCompanyStatus } from '../api.js';
+import { getCompany, updateCompany, getCompanyData, createCompanyData, deleteCompanyData, getContacts, createContact, updateContact, deleteContact, getActivities, createActivity, deleteActivity, toggleStar, getStatuses, changeCompanyStatus, getCompanyTopics, getTopics, addCompanyTopic, removeCompanyTopic, changeCompanyTopicStatus } from '../api.js';
+import { getSelectedTopicId } from '../state.js';
 import { renderMarkdown } from '../markdownRenderer.js';
 
 export async function renderDetail(id) {
   const app = document.getElementById('app');
   app.innerHTML = '<p class="text-secondary">Loading...</p>';
   try {
-    const [company, companyData, contacts, activities] = await Promise.all([
-      getCompany(id), getCompanyData(id), getContacts(id), getActivities(id)
+    const [company, companyData, contacts, activities, companyTopics, allTopics] = await Promise.all([
+      getCompany(id), getCompanyData(id), getContacts(id), getActivities(id), getCompanyTopics(id), getTopics()
     ]);
     app.innerHTML = `
       <p class="mb-3"><a href="javascript:history.back()" class="text-secondary hover:text-primary flex items-center gap-1 text-sm"><span class="material-symbols-outlined text-sm">arrow_back</span> Back</a></p>
       <div id="d-header" class="bg-surface-container-lowest p-4 rounded-xl shadow-sm mb-3 border border-outline-variant/20"></div>
       <div id="d-edit" class="bg-surface-container-lowest p-4 rounded-xl shadow-sm mb-3 border border-outline-variant/20 hidden"></div>
+      <div id="d-topics" class="bg-surface-container-lowest p-4 rounded-xl shadow-sm mb-3 border border-outline-variant/20"></div>
       <div id="d-activities" class="bg-surface-container-lowest p-4 rounded-xl shadow-sm mb-3 border border-outline-variant/20"></div>
       <div id="d-contacts" class="bg-surface-container-lowest p-4 rounded-xl shadow-sm mb-3 border border-outline-variant/20"></div>
       <div id="d-data" class="bg-surface-container-lowest p-4 rounded-xl shadow-sm mb-3 border border-outline-variant/20"></div>`;
-    renderHeader(company);
+    renderHeader(company, companyTopics);
+    renderTopics(company.id, companyTopics, allTopics);
     renderActivities(company.id, activities);
     renderContacts(company.id, contacts);
     renderCompanyData(company.id, companyData);
@@ -24,12 +27,25 @@ export async function renderDetail(id) {
   }
 }
 
-function renderHeader(c) {
+function renderHeader(c, companyTopics) {
   const el = document.getElementById('d-header');
   const crm = c.crm_status || 'new';
-  const rel = c.relevance;
   const starIcon = c.starred ? '★' : '☆';
   const starColor = c.starred ? 'text-amber-400' : 'text-gray-300';
+
+  // Task 10.2: Score from selected topic or highest among all
+  const selectedTopicId = getSelectedTopicId();
+  let rel = null;
+  if (companyTopics && companyTopics.length) {
+    if (selectedTopicId) {
+      const match = companyTopics.find(t => t.topic_id === selectedTopicId);
+      if (match) rel = { score: match.score, confidence: match.confidence, scored_at: match.scored_at, reasoning: match.reasoning };
+    } else {
+      // "Tutti i topic": show highest score
+      const best = companyTopics.reduce((b, t) => (!b || (t.score || 0) > (b.score || 0)) ? t : b, null);
+      if (best) rel = { score: best.score, confidence: best.confidence, scored_at: best.scored_at, reasoning: best.reasoning };
+    }
+  }
   const scoreLine = rel ? `<p class="text-xs text-secondary mt-1"><span class="font-semibold">Score:</span> ${rel.score} | <span class="font-semibold">Confidence:</span> ${Number(rel.confidence).toFixed(2)} | <span class="font-semibold">Elaborated:</span> ${rel.scored_at ? new Date(rel.scored_at).toLocaleDateString('it-IT') : '-'}</p>` : '';
   const reasoningHtml = rel && rel.reasoning ? `<p class="text-[11px] text-secondary/70 mt-0.5 italic">${esc(rel.reasoning)}</p>` : '';
   const addressParts = [c.address, c.city, c.county, c.region].filter(Boolean).join(', ');
@@ -82,6 +98,109 @@ function renderHeader(c) {
     } catch (err) { console.error(err); }
   });
   document.addEventListener('click', () => dropdown.classList.add('hidden'), { once: true });
+}
+
+function renderTopics(companyId, companyTopics, allTopics) {
+  const el = document.getElementById('d-topics');
+  if (!el) return;
+
+  const associatedIds = new Set(companyTopics.map(ct => ct.topic_id));
+  const availableTopics = allTopics.filter(t => !associatedIds.has(t.id));
+
+  const rows = companyTopics.map(ct => {
+    const topicName = ct.topics?.name || `Topic #${ct.topic_id}`;
+    const status = ct.crm_status || 'new';
+    const score = ct.score != null ? ct.score : '-';
+    const confidence = ct.confidence != null ? Number(ct.confidence).toFixed(2) : '-';
+    const scoredAt = ct.scored_at ? new Date(ct.scored_at).toLocaleDateString('it-IT') : '-';
+    return `<tr class="hover:bg-surface-container-low transition-colors">
+      <td class="px-4 py-3 text-sm font-medium">${esc(topicName)}</td>
+      <td class="px-4 py-3">
+        <span class="relative inline-block">
+          <span class="topic-status-btn px-2 py-0.5 rounded-md text-[10px] font-bold uppercase crm-badge-${status} cursor-pointer hover:ring-2 hover:ring-primary/30" data-company-id="${companyId}" data-topic-id="${ct.topic_id}" data-current-status="${esc(status)}">${esc(status)}</span>
+          <div class="topic-status-dropdown hidden absolute left-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-outline-variant/20 z-50 min-w-[160px]"></div>
+        </span>
+      </td>
+      <td class="px-4 py-3 text-sm">${score}</td>
+      <td class="px-4 py-3 text-sm">${confidence}</td>
+      <td class="px-4 py-3 text-sm">${scoredAt}</td>
+      <td class="px-4 py-3"><button class="remove-topic text-error hover:text-red-800" data-topic-id="${ct.topic_id}" title="Remove topic"><span class="material-symbols-outlined text-sm">close</span></button></td>
+    </tr>`;
+  }).join('');
+
+  const addDropdownOptions = availableTopics.map(t =>
+    `<option value="${t.id}">${esc(t.name)}</option>`
+  ).join('');
+
+  el.innerHTML = `<h2 class="text-sm font-headline font-bold text-primary uppercase tracking-wider mb-3">Topics (${companyTopics.length})</h2>
+    ${companyTopics.length ? `<table class="w-full text-left"><thead><tr class="bg-surface-container-low"><th class="px-4 py-3 text-[10px] font-bold uppercase text-secondary/60">Topic</th><th class="px-4 py-3 text-[10px] font-bold uppercase text-secondary/60">Status</th><th class="px-4 py-3 text-[10px] font-bold uppercase text-secondary/60">Score</th><th class="px-4 py-3 text-[10px] font-bold uppercase text-secondary/60">Confidence</th><th class="px-4 py-3 text-[10px] font-bold uppercase text-secondary/60">Scored At</th><th class="px-4 py-3"></th></tr></thead><tbody class="divide-y divide-surface-container">${rows}</tbody></table>` : '<p class="text-secondary text-xs">No topics associated.</p>'}
+    ${availableTopics.length ? `<div class="mt-3 flex items-center gap-2">
+      <select id="add-topic-select" class="px-3 py-2 bg-surface-container-low border-none rounded-xl text-sm">
+        <option value="">Select a topic...</option>
+        ${addDropdownOptions}
+      </select>
+      <button id="btn-add-topic" class="px-4 py-2 bg-primary text-primary-fixed font-bold rounded-xl text-sm">+ Add Topic</button>
+      <span id="topic-fb" class="text-sm"></span>
+    </div>` : ''}`;
+
+  // Task 10.3: Per-topic status change
+  el.querySelectorAll('.topic-status-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const dropdown = btn.parentElement.querySelector('.topic-status-dropdown');
+      if (!dropdown.classList.contains('hidden')) { dropdown.classList.add('hidden'); return; }
+      // Close any other open dropdowns
+      el.querySelectorAll('.topic-status-dropdown').forEach(d => d.classList.add('hidden'));
+      try {
+        const statuses = await getStatuses();
+        const currentStatus = btn.dataset.currentStatus;
+        dropdown.innerHTML = statuses.map(s =>
+          `<div class="topic-status-opt px-3 py-2 text-[11px] cursor-pointer hover:bg-surface-container-low ${s.name === currentStatus ? 'font-bold text-primary' : 'text-on-surface'}" data-status="${esc(s.name)}">
+            <span class="uppercase font-bold">${esc(s.name)}</span>
+            <span class="text-[10px] text-secondary ml-1">${esc(s.description || '')}</span>
+          </div>`
+        ).join('');
+        dropdown.classList.remove('hidden');
+        dropdown.querySelectorAll('.topic-status-opt').forEach(opt => opt.addEventListener('click', async () => {
+          dropdown.classList.add('hidden');
+          const newStatus = opt.dataset.status;
+          if (newStatus !== currentStatus) {
+            await changeCompanyTopicStatus(companyId, parseInt(btn.dataset.topicId), newStatus);
+            renderDetail(companyId);
+          }
+        }));
+      } catch (err) { console.error(err); }
+    });
+  });
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', () => {
+    el.querySelectorAll('.topic-status-dropdown').forEach(d => d.classList.add('hidden'));
+  }, { once: true });
+
+  // Remove topic
+  el.querySelectorAll('.remove-topic').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (confirm('Remove this topic association?')) {
+        await removeCompanyTopic(companyId, parseInt(btn.dataset.topicId));
+        renderDetail(companyId);
+      }
+    });
+  });
+
+  // Add topic
+  document.getElementById('btn-add-topic')?.addEventListener('click', async () => {
+    const select = document.getElementById('add-topic-select');
+    const topicId = parseInt(select?.value);
+    if (!topicId) { const fb = document.getElementById('topic-fb'); if (fb) fb.textContent = 'Select a topic first'; return; }
+    try {
+      await addCompanyTopic(companyId, topicId);
+      renderDetail(companyId);
+    } catch (e) {
+      const fb = document.getElementById('topic-fb');
+      if (fb) fb.textContent = e.message;
+    }
+  });
 }
 
 function showEdit(c) {

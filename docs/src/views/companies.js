@@ -1,5 +1,6 @@
 import { getCompanies, getRegions, autocompleteCompanies, toggleStar, createCompany } from '../api.js';
 import { esc, scoreColor, crmBadge, attachRowHandlers } from '../row-helpers.js';
+import { getSelectedTopicId } from '../state.js';
 
 let state = { search:'', region:'', crm_status:'', starred:false, score_min:0, score_max:10,
   emp_min:0, emp_max:10000, sort_by:'name', sort_order:'asc', page:1 };
@@ -214,11 +215,13 @@ function renderTable(data) {
   if (!data.results.length) { el.innerHTML='<p class="p-4 text-secondary">No companies found.</p>'; return; }
   const si = col => state.sort_by!==col ? '' : state.sort_order==='asc' ? ' ▲' : ' ▼';
 
+  const topicSelected = !!getSelectedTopicId();
   const rows = data.results.map(c => {
     const score = c.relevance_score!=null ? c.relevance_score : 0;
     const emp = empDisplay(c);
     const star = c.starred ? '★' : '☆';
     const sc = c.starred ? 'text-amber-400' : 'text-gray-300 hover:text-amber-300';
+    const status = topicSelected ? (c.topic_crm_status || c.crm_status) : c.crm_status;
     return `<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer">
       <td class="px-3 py-2 w-8"><span class="star-toggle ${sc} cursor-pointer text-lg" data-id="${c.id}">${star}</span></td>
       <td class="px-3 py-2" data-nav="${c.id}">
@@ -229,7 +232,7 @@ function renderTable(data) {
       <td class="px-3 py-2"><span class="text-xs font-bold" style="color:${scoreColor(score)}">${score}</span></td>
       <td class="px-3 py-2 text-[11px] text-secondary text-right">${fmtEuro(c.latest_revenue)}</td>
       <td class="px-3 py-2 text-[11px] text-secondary">${esc(emp)}</td>
-      <td class="px-3 py-2">${crmBadge(c.crm_status)}</td>
+      <td class="px-3 py-2">${crmBadge(status)}</td>
     </tr>`;
   }).join('');
 

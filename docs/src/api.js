@@ -3,13 +3,15 @@
  * Drop-in replacement: same exported function signatures as the old fetch-based client.
  */
 import { sb } from './supabase.js';
+import { getSelectedTopicId } from './state.js';
 
 function err(e) { throw new Error(e?.message || e?.details || String(e)); }
 
 // ── Dashboard ────────────────────────────────────────────────────────────
 
 export async function getDashboard() {
-  const { data, error } = await sb.rpc('get_dashboard_stats');
+  const p_topic_id = getSelectedTopicId();
+  const { data, error } = await sb.rpc('get_dashboard_stats', { p_topic_id });
   if (error) err(error);
   return data;
 }
@@ -65,9 +67,13 @@ export async function getIntelligenceCompanies(params = {}) {
 
 export async function getCompanies(params = {}) {
   let q = sb.from('v_companies_full').select('*', { count: 'exact' });
+
+  const topicId = getSelectedTopicId();
+  if (topicId) q = q.eq('topic_id', topicId);
+
   if (params.search) q = q.or(`name.ilike.%${params.search}%,vat_number.ilike.%${params.search}%`);
   if (params.region) q = q.eq('region', params.region);
-  if (params.crm_status) q = q.eq('crm_status', params.crm_status);
+  if (params.crm_status) q = q.eq(topicId ? 'topic_crm_status' : 'crm_status', params.crm_status);
   if (params.starred) q = q.eq('starred', true);
   if (params.min_score != null) q = q.gte('relevance_score', params.min_score);
   if (params.max_score != null) q = q.lte('relevance_score', params.max_score);
@@ -102,9 +108,15 @@ export async function autocompleteCompanies(q) {
 export async function getCompany(id) {
   const { data, error } = await sb.from('companies').select('*').eq('id', id).single();
   if (error) err(error);
-  // Attach relevance
-  const { data: rel } = await sb.from('company_scores').select('score,confidence,reasoning').eq('company_id', id).maybeSingle();
-  data.relevance = rel || null;
+  // Attach topics with topic names
+  const { data: topics } = await sb.from('company_topics').select('*, topics(name)').eq('company_id', id);
+  data.topics = topics || [];
+  // Attach relevance from company_topics (use selected topic or first available)
+  const topicId = getSelectedTopicId();
+  const topicMatch = topicId
+    ? (data.topics.find(t => t.topic_id === topicId) || null)
+    : (data.topics.length ? data.topics.reduce((best, t) => (!best || (t.score || 0) > (best.score || 0)) ? t : best, null) : null);
+  data.relevance = topicMatch ? { score: topicMatch.score, confidence: topicMatch.confidence, reasoning: topicMatch.reasoning } : null;
   return data;
 }
 
@@ -219,8 +231,74 @@ export async function getCompanyStatusHistory(id) {
 export async function changeCompanyStatus(companyId, body) {
   const { data: statusRow, error: sErr } = await sb.from('statuses').select('id').eq('name', body.status).single();
   if (sErr) err(sErr);
+
+  const topicId = body.topicId || null;
+
+  if (topicId) {
+    // Topic-specific status change: update company_topics and insert into company_topic_statuses
+    await sb.from('company_topics').update({ crm_status: body.status, updated_at: new Date().toISOString() }).eq('company_id', companyId).eq('topic_id', topicId);
+    const { data: ct } = await sb.from('company_topics').select('id').eq('company_id', companyId).eq('topic_id', topicId).single();
+    const { data, error } = await sb.from('company_topic_statuses').insert({ company_topic_id: ct.id, status_id: statusRow.id, note: body.note || null }).select('id,status_id,note,created_at').single();
+    if (error) err(error);
+    return { ...data, status: body.status };
+  }
+
+  // Legacy flow: update company_statuses and companies.crm_status
   const { data, error } = await sb.from('company_statuses').insert({ company_id: companyId, status_id: statusRow.id, note: body.note || null }).select('id,status_id,note,created_at').single();
   if (error) err(error);
   await sb.from('companies').update({ crm_status: body.status, updated_at: new Date().toISOString() }).eq('id', companyId);
   return { ...data, status: body.status };
+}
+
+// ── Topics ───────────────────────────────────────────────────────────
+
+export async function getTopics() {
+  const { data, error } = await sb.from('topics').select('*').order('parent_id', { ascending: true, nullsFirst: true }).order('name');
+  if (error) err(error);
+  return data;
+}
+
+export async function getCompanyTopics(companyId) {
+  const { data, error } = await sb.from('company_topics').select('*, topics(name)').eq('company_id', companyId).order('created_at');
+  if (error) err(error);
+  return data;
+}
+
+export async function addCompanyTopic(companyId, topicId) {
+  const { data, error } = await sb.from('company_topics').insert({ company_id: companyId, topic_id: topicId, crm_status: 'new' }).select().single();
+  if (error) err(error);
+  // Insert initial status record
+  const { data: statusRow } = await sb.from('statuses').select('id').eq('name', 'new').single();
+  if (statusRow) {
+    await sb.from('company_topic_statuses').insert({ company_topic_id: data.id, status_id: statusRow.id, note: 'created' });
+  }
+  return data;
+}
+
+export async function removeCompanyTopic(companyId, topicId) {
+  const { error } = await sb.from('company_topics').delete().eq('company_id', companyId).eq('topic_id', topicId);
+  if (error) err(error);
+  return { ok: true };
+}
+
+export async function changeCompanyTopicStatus(companyId, topicId, status, note) {
+  const { data: statusRow, error: sErr } = await sb.from('statuses').select('id').eq('name', status).single();
+  if (sErr) err(sErr);
+  await sb.from('company_topics').update({ crm_status: status, updated_at: new Date().toISOString() }).eq('company_id', companyId).eq('topic_id', topicId);
+  const { data: ct } = await sb.from('company_topics').select('id').eq('company_id', companyId).eq('topic_id', topicId).single();
+  const { data, error } = await sb.from('company_topic_statuses').insert({ company_topic_id: ct.id, status_id: statusRow.id, note: note || null }).select('id,status_id,note,created_at').single();
+  if (error) err(error);
+  return { ...data, status };
+}
+
+export async function getCompanyTopicStatusHistory(companyTopicId) {
+  const { data, error } = await sb.from('company_topic_statuses').select('id,status_id,note,created_at,statuses(name,description)').eq('company_topic_id', companyTopicId).order('created_at', { ascending: false });
+  if (error) err(error);
+  return data.map(r => ({ ...r, status: r.statuses?.name, description: r.statuses?.description }));
+}
+
+export async function getCrossSellingOpportunities(srcTopicId, tgtTopicId) {
+  const { data, error } = await sb.rpc('get_cross_selling_opportunities', { p_source_topic_id: srcTopicId, p_target_topic_id: tgtTopicId });
+  if (error) err(error);
+  return data || [];
 }
