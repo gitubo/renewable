@@ -30,7 +30,7 @@ function renderHeader(c) {
   const rel = c.relevance;
   const starIcon = c.starred ? '★' : '☆';
   const starColor = c.starred ? 'text-amber-400' : 'text-gray-300';
-  const scoreBadge = rel ? `<span class="px-2 py-0.5 rounded bg-primary-fixed/30 text-primary font-bold text-sm">${rel.score}/10</span><span class="text-[10px] text-secondary ml-1">(conf: ${Number(rel.confidence).toFixed(2)})</span>` : '';
+  const scoreLine = rel ? `<p class="text-xs text-secondary mt-1"><span class="font-semibold">Score:</span> ${rel.score} | <span class="font-semibold">Confidence:</span> ${Number(rel.confidence).toFixed(2)} | <span class="font-semibold">Elaborated:</span> ${rel.scored_at ? new Date(rel.scored_at).toLocaleDateString('it-IT') : '-'}</p>` : '';
   const reasoningHtml = rel && rel.reasoning ? `<p class="text-[11px] text-secondary/70 mt-0.5 italic">${esc(rel.reasoning)}</p>` : '';
   const addressParts = [c.address, c.city, c.county, c.region].filter(Boolean).join(', ');
   el.innerHTML = `<div class="flex justify-between items-start">
@@ -43,10 +43,12 @@ function renderHeader(c) {
           <div id="status-dropdown" class="hidden absolute left-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-outline-variant/20 z-50 min-w-[160px]"></div>
         </span>
       </h1>
-      <div class="mt-1 flex items-center gap-1">${scoreBadge}</div>
+      ${scoreLine}
       ${reasoningHtml}
-      <p class="text-xs text-secondary mt-1">VAT: <strong>${esc(c.vat_number)}</strong> | ATECO: ${esc(c.ateco_code||'')} ${c.employees?' | Employees: '+esc(c.employees):''} ${c.phone?' | Phone: '+esc(c.phone):''} ${c.website_url?' | <a href="'+esc(c.website_url)+'" target="_blank" class="text-primary hover:underline">Website</a>':''}</p>
-      <p class="text-xs text-secondary mt-0.5">${addressParts || ''}</p>
+      <p class="text-xs text-secondary mt-1"><span class="font-semibold">VAT:</span> ${esc(c.vat_number)} | <span class="font-semibold">ATECO:</span> ${esc(c.ateco_code||'-')}${c.founding_date ? ' | <span class="font-semibold">Founded:</span> ' + fmtDate(c.founding_date) : ''}</p>
+      <p class="text-xs text-secondary mt-0.5"><span class="font-semibold">Location:</span> ${addressParts || '-'}</p>
+      ${revProfitLine(c)}
+      ${empCostLine(c)}
       ${c.notes?'<p class="text-xs text-secondary/70 mt-1 italic">'+esc(c.notes)+'</p>':''}
     </div>
     <button id="btn-edit" class="px-3 py-1.5 bg-secondary text-on-secondary rounded-lg font-semibold text-xs hover:bg-[#374765] transition-colors flex items-center gap-1"><span class="material-symbols-outlined text-sm">edit</span> Edit</button>
@@ -94,8 +96,6 @@ function showEdit(c) {
       <label class="text-xs font-bold text-secondary/70 uppercase">Region <input id="e-region" value="${esc(c.region||'')}" class="mt-1 w-full px-3 py-2 bg-surface-container-low border-none rounded-xl text-sm"/></label>
       <label class="text-xs font-bold text-secondary/70 uppercase">City <input id="e-city" value="${esc(c.city||'')}" class="mt-1 w-full px-3 py-2 bg-surface-container-low border-none rounded-xl text-sm"/></label>
       <label class="text-xs font-bold text-secondary/70 uppercase">Address <input id="e-address" value="${esc(c.address||'')}" class="mt-1 w-full px-3 py-2 bg-surface-container-low border-none rounded-xl text-sm"/></label>
-      <label class="text-xs font-bold text-secondary/70 uppercase">Phone <input id="e-phone" value="${esc(c.phone||'')}" class="mt-1 w-full px-3 py-2 bg-surface-container-low border-none rounded-xl text-sm"/></label>
-      <label class="text-xs font-bold text-secondary/70 uppercase">Website <input id="e-web" value="${esc(c.website_url||'')}" class="mt-1 w-full px-3 py-2 bg-surface-container-low border-none rounded-xl text-sm"/></label>
       <label class="text-xs font-bold text-secondary/70 uppercase">CRM Status <select id="e-crm" class="mt-1 w-full px-3 py-2 bg-surface-container-low border-none rounded-xl text-sm">${crmOpts}</select></label>
       <label class="text-xs font-bold text-secondary/70 uppercase md:col-span-2">Notes <textarea id="e-notes" rows="2" class="mt-1 w-full px-3 py-2 bg-surface-container-low border-none rounded-xl text-sm">${esc(c.notes||'')}</textarea></label>
       <div class="md:col-span-2 flex gap-3 mt-2">
@@ -109,8 +109,8 @@ function showEdit(c) {
     try {
       await updateCompany(c.id, {
         name: v('e-name'), ateco_code: v('e-ateco')||null, region: v('e-region')||null,
-        city: v('e-city')||null, address: v('e-address')||null, phone: v('e-phone')||null,
-        website_url: v('e-web')||null, crm_status: v('e-crm')||null, notes: v('e-notes')||null,
+        city: v('e-city')||null, address: v('e-address')||null,
+        crm_status: v('e-crm')||null, notes: v('e-notes')||null,
       });
       document.getElementById('e-feedback').innerHTML = '<p class="text-on-tertiary-container">Saved</p>';
       setTimeout(() => renderDetail(c.id), 600);
@@ -219,3 +219,42 @@ function renderContacts(companyId, contacts) {
 
 function v(id) { return document.getElementById(id)?.value?.trim()||''; }
 function esc(s) { if(!s) return ''; const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
+
+function fmtEuro(v) {
+  if (v == null) return '-';
+  return '€ ' + Number(v).toLocaleString('it-IT');
+}
+
+function fmtDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  return isNaN(dt) ? '-' : dt.toLocaleDateString('it-IT');
+}
+
+function empLine(c) {
+  if (c.employees_min != null && c.employees_max != null) {
+    const emp = c.employees_max >= 10000 ? c.employees_min + '+' : c.employees_min + '-' + c.employees_max;
+    return emp;
+  }
+  return '-';
+}
+
+function revProfitLine(c) {
+  const parts = [];
+  if (c.latest_revenue != null) parts.push(`<span class="font-semibold">Revenue:</span> ${fmtEuro(c.latest_revenue)}`);
+  if (c.latest_profit != null) parts.push(`<span class="font-semibold">Profit:</span> ${fmtEuro(c.latest_profit)}`);
+  if (!parts.length) return '';
+  return `<p class="text-xs text-secondary mt-0.5">${parts.join(' | ')}</p>`;
+}
+
+function empCostLine(c) {
+  const parts = [];
+  parts.push(`<span class="font-semibold">Employees:</span> ${empLine(c)}`);
+  if (c.latest_personnel_cost != null) parts.push(`<span class="font-semibold">Personnel Cost:</span> ${fmtEuro(c.latest_personnel_cost)}`);
+  return `<p class="text-xs text-secondary mt-0.5">${parts.join(' | ')}</p>`;
+}
+
+function financialLine(c) {
+  // kept for compatibility, no longer used in header
+  return '';
+}

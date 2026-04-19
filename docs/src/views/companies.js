@@ -201,7 +201,12 @@ function empDisplay(c) {
     if (c.employees_max >= 10000) return c.employees_min + '+';
     return c.employees_min + '-' + c.employees_max;
   }
-  return c.employees || '-';
+  return '-';
+}
+
+function fmtEuro(v) {
+  if (v == null) return '-';
+  return '€ ' + Number(v).toLocaleString('it-IT');
 }
 
 function renderTable(data) {
@@ -222,6 +227,7 @@ function renderTable(data) {
       </td>
       <td class="px-3 py-2"><div class="text-[11px] text-secondary">${esc(c.city||'')}</div><div class="text-[10px] text-outline">${esc(c.region||'')}</div></td>
       <td class="px-3 py-2"><span class="text-xs font-bold" style="color:${scoreColor(score)}">${score}</span></td>
+      <td class="px-3 py-2 text-[11px] text-secondary text-right">${fmtEuro(c.latest_revenue)}</td>
       <td class="px-3 py-2 text-[11px] text-secondary">${esc(emp)}</td>
       <td class="px-3 py-2">${crmBadge(c.crm_status)}</td>
     </tr>`;
@@ -233,6 +239,7 @@ function renderTable(data) {
       <th class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant cursor-pointer co-sort" data-col="name">Company${si('name')}</th>
       <th class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant cursor-pointer co-sort" data-col="city">Location${si('city')}</th>
       <th class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant cursor-pointer co-sort" data-col="score">Score${si('score')}</th>
+      <th class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant cursor-pointer co-sort text-right" data-col="latest_revenue">Revenue${si('latest_revenue')}</th>
       <th class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant cursor-pointer co-sort" data-col="employees">Employees${si('employees')}</th>
       <th class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant cursor-pointer co-sort" data-col="crm_status">Status${si('crm_status')}</th>
     </tr></thead>
